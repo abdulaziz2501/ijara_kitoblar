@@ -1,0 +1,7 @@
+aiogram==3.13.1
+python-dotenv==1.0.1
+sqlalchemy==2.0.35
+streamlit==1.39.0
+plotly==5.24.1
+pandas==2.2.3
+aiohttp==3.10.10

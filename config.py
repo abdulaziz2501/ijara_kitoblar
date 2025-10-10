@@ -5,13 +5,25 @@ load_dotenv()
 
 # Telegram Bot
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = os.getenv('ADMIN_ID')  # Kutubxonachi ID
+ADMIN_IDS = os.getenv('ADMIN_IDS')  # Kutubxonachi ID
 
 # Tarif narxlari
 SUBSCRIPTION_PLANS = {
-    'Free': {'price': 0, 'duration_days': 0},
-    'Money': {'price': 1000, 'duration_days': 30},
-    'Premium': {'price': 2000, 'duration_days': 30}
+    'Free': {
+        'price': 0,
+        'duration_days': 0,  # Cheksiz
+        'features': ['Asosiy xizmatlar']
+    },
+    'Money': {
+        'price': 1000,
+        'duration_days': 30,
+        'features': ['Barcha kitoblar', '24/7 qo\'llab-quvvatlash']
+    },
+    'Premium': {
+        'price': 2000,
+        'duration_days': 30,
+        'features': ['Barcha kitoblar', 'Audio kitoblar', 'VIP qo\'llab-quvvatlash']
+    }
 }
 
 # Database

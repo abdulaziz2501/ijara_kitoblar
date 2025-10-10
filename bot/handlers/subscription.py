@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from database.db_manager import DatabaseManager
 from config import SUBSCRIPTION_PLANS
+from datetime import datetime  # Yangi: datetime import qo'shildi
 
 router = Router()
 
@@ -18,9 +19,9 @@ async def cmd_subscription(message: Message):
         return
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📗 Free (0 so'm)", callback_data="plan_Free")],
-        [InlineKeyboardButton(text="📘 Money (1000 so'm)", callback_data="plan_Money")],
-        [InlineKeyboardButton(text="📕 Premium (2000 so'm)", callback_data="plan_Premium")]
+        [InlineKeyboardButton(text="🟢 Free (0 so'm)", callback_data="plan_Free")],
+        [InlineKeyboardButton(text="🔵 Money (1000 so'm)", callback_data="plan_Money")],
+        [InlineKeyboardButton(text="🟣 Premium (2000 so'm)", callback_data="plan_Premium")]
     ])
 
     sub_info = ""

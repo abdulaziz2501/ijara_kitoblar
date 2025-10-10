@@ -1,90 +1,73 @@
 import asyncio
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
-from config import WARNING_DAYS
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 async def send_expiry_warnings(bot):
-    """Muddati tugayotgan obunalar haqida ogohlantirish"""
+    """Obuna tugashiga 3 kun qolganda ogohlantirish yuborish"""
     while True:
         try:
             db = DatabaseManager()
-            users_to_warn = db.get_users_needing_warning()
-
-            for user in users_to_warn:
-                # Oldingi ogohlantirish yuborilganini tekshirish
-                if user.last_warning_sent:
-                    hours_since_warning = (datetime.now() - user.last_warning_sent).total_seconds() / 3600
-                    if hours_since_warning < 24:  # 24 soatda bir marta
-                        continue
-
-                days_left = (user.subscription_end_date - datetime.now()).days
-
-                try:
-                    await bot.send_message(
-                        user.telegram_id,
-                        f"⚠️ OGOHLANTIRISH\n\n"
-                        f"Hurmatli {user.first_name}!\n\n"
-                        f"📋 {user.subscription_plan} tarifingiz {days_left} kundan keyin tugaydi.\n"
-                        f"📅 Tugash sanasi: {user.subscription_end_date.strftime('%d.%m.%Y')}\n\n"
-                        f"Obunani yangilash uchun /subscription buyrug'ini yuboring."
-                    )
-
-                    # SMS yuborish (ixtiyoriy - SMS API kerak)
-                    # await send_sms(user.phone_number, f"Kutubxona obunangiz {days_left} kundan keyin tugaydi.")
-
-                    # Oxirgi ogohlantirish vaqtini yangilash
-                    user.last_warning_sent = datetime.now()
-                    db.session.commit()
-
-                    logger.info(f"Ogohlantirish yuborildi: {user.library_id}")
-
-                except Exception as e:
-                    logger.error(f"Ogohlantirish yuborishda xatolik {user.library_id}: {e}")
-
+            
+            # 3 kun qolganlarni topish
+            warning_date = datetime.now() + timedelta(days=3)
+            users = db.get_users_expiring_soon(warning_date)
+            
+            for user in users:
+                if user.subscription_plan in ['Money', 'Premium']:
+                    days_left = (user.subscription_end_date - datetime.now()).days
+                    
+                    try:
+                        await bot.send_message(
+                            user.telegram_id,
+                            f"⚠️ OGOHLANTIRISH!\n\n"
+                            f"📋 Sizning {user.subscription_plan} obunangiz tugashiga {days_left} kun qoldi!\n\n"
+                            f"💡 Obunani uzaytirish uchun: /subscription\n\n"
+                            f"📌 Agar obuna tugasa, avtomatik ravishda Free rejimga o'tasiz."
+                        )
+                    except Exception as e:
+                        print(f"Xabar yuborishda xato (user {user.telegram_id}): {e}")
+            
             db.close()
-
-            # Har 6 soatda bir marta tekshirish
-            await asyncio.sleep(21600)
-
+            
         except Exception as e:
-            logger.error(f"Bildirishnoma tizimida xatolik: {e}")
-            await asyncio.sleep(3600)
+            print(f"Ogohlantirish yuborishda xato: {e}")
+        
+        # Har kuni bir marta tekshirish
+        await asyncio.sleep(86400)  # 24 soat
 
 
 async def check_expired_subscriptions(bot):
-    """Muddati o'tgan obunalarni tekshirish"""
+    """Muddati o'tgan obunalarni tekshirish va Free rejimga o'tkazish"""
     while True:
         try:
             db = DatabaseManager()
-            all_users = db.get_all_users()
-
-            for user in all_users:
-                if user.subscription_plan != 'Free' and user.subscription_end_date:
-                    if user.subscription_end_date < datetime.now():
-                        # Free tarifga o'tkazish
-                        user.subscription_plan = 'Free'
-                        user.subscription_end_date = None
-                        db.session.commit()
-
-                        try:
-                            await bot.send_message(
-                                user.telegram_id,
-                                f"⚠️ Obunangiz tugadi!\n\n"
-                                f"Siz Free tarifga o'tdingiz.\n\n"
-                                f"Yangi obunani /subscription orqali sotib olishingiz mumkin."
-                            )
-                        except:
-                            pass
-
+            
+            # Muddati o'tganlarni topish
+            expired_users = db.get_expired_subscriptions()
+            
+            for user in expired_users:
+                if user.subscription_plan in ['Money', 'Premium']:
+                    # Avtomatik Free rejimga o'tkazish
+                    old_plan = user.subscription_plan
+                    db.update_subscription(user.library_id, 'Free')
+                    
+                    try:
+                        await bot.send_message(
+                            user.telegram_id,
+                            f"📢 OBUNA TUGADI!\n\n"
+                            f"❌ Sizning {old_plan} obunangiz muddati tugadi.\n"
+                            f"✅ Avtomatik ravishda Free rejimga o'tdingiz.\n\n"
+                            f"💰 Yangi obuna sotib olish: /subscription\n\n"
+                            f"📚 Free rejimda kutubxonadan cheklangan foydalanishingiz mumkin."
+                        )
+                    except Exception as e:
+                        print(f"Xabar yuborishda xato (user {user.telegram_id}): {e}")
+            
             db.close()
-
-            # Har kuni bir marta tekshirish
-            await asyncio.sleep(86400)
-
+            
         except Exception as e:
-            logger.error(f"Obunalarni tekshirishda xatolik: {e}")
-            await asyncio.sleep(3600)
+            print(f"Obunalarni tekshirishda xato: {e}")
+        
+        # Har 6 soatda bir marta tekshirish
+        await asyncio.sleep(21600)  # 6 soat

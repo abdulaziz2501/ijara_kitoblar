@@ -14,6 +14,7 @@ class Registration(StatesGroup):
     last_name = State()
     phone_number = State()
     birth_year = State()
+    study_place = State()  # Yangi: Qayerda o'qiydi
 
 
 @router.message(Command("start"))
@@ -27,7 +28,8 @@ async def cmd_start(message: Message, state: FSMContext):
             f"Xush kelibsiz, {user.first_name}!\n\n"
             f"📚 Kutubxona ID: {user.library_id}\n"
             f"📋 Tarif: {user.subscription_plan}\n"
-            f"👤 Yosh: {user.age}\n\n"
+            f"👤 Yosh: {user.age}\n"
+            f"🎓 O'quv joyi: {user.study_place}\n\n"
             f"Yordam uchun /help buyrug'ini yuboring."
         )
     else:
@@ -103,33 +105,60 @@ async def process_birth_year(message: Message, state: FSMContext):
             await message.answer("❌ Noto'g'ri yil kiritdingiz. Qaytadan kiriting:")
             return
 
-        data = await state.get_data()
-
-        db = DatabaseManager()
-        user, error = db.create_user(
-            telegram_id=message.from_user.id,
-            first_name=data['first_name'],
-            last_name=data['last_name'],
-            phone_number=data['phone_number'],
-            birth_year=birth_year
-        )
-        db.close()
-
-        if error:
-            await message.answer(f"❌ Xatolik: {error}")
-            await state.clear()
-            return
-
+        await state.update_data(birth_year=birth_year)
+        
+        # Yangi: O'quv joyini so'rash
         await message.answer(
-            f"✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!\n\n"
-            f"👤 Ism: {user.first_name} {user.last_name}\n"
-            f"📚 Kutubxona ID: {user.library_id}\n"
-            f"👶 Yosh: {user.age}\n"
-            f"📋 Tarif: {user.subscription_plan}\n\n"
-            f"💡 Tarifni o'zgartirish uchun /subscription buyrug'ini yuboring."
+            "🎓 Qayerda o'qiysiz yoki ishlaydiz?\n"
+            "(Masalan: Toshkent Davlat Universiteti, Iqtisodiyot kolleji, Ishlamayman)"
         )
-
-        await state.clear()
+        await state.set_state(Registration.study_place)
 
     except ValueError:
         await message.answer("❌ Iltimos, faqat raqam kiriting:")
+
+
+@router.message(Registration.study_place)
+async def process_study_place(message: Message, state: FSMContext):
+    """Yangi: O'quv joyini qayta ishlash"""
+    study_place = message.text.strip()
+    
+    if len(study_place) < 2:
+        await message.answer("❌ Iltimos, to'g'ri o'quv joyini kiriting:")
+        return
+    
+    await state.update_data(study_place=study_place)
+    data = await state.get_data()
+
+    db = DatabaseManager()
+    user, error = db.create_user(
+        telegram_id=message.from_user.id,
+        first_name=data['first_name'],
+        last_name=data['last_name'],
+        phone_number=data['phone_number'],
+        birth_year=data['birth_year'],
+        study_place=data['study_place']
+    )
+    db.close()
+
+    if error:
+        await message.answer(f"❌ Xatolik: {error}")
+        await state.clear()
+        return
+
+    # Yangi: Registratsiya tasdiqlash xabari
+    await message.answer(
+        "✅ SIZ MUVAFFAQIYATLI RO'YXATDAN O'TDINGIZ!\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 Ism-familiya: {user.first_name} {user.last_name}\n"
+        f"📚 Kutubxona ID: {user.library_id}\n"
+        f"👶 Yosh: {user.age}\n"
+        f"🎓 O'quv joyi: {user.study_place}\n"
+        f"📋 Hozirgi tarif: {user.subscription_plan}\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "💡 Tarifni o'zgartirish: /subscription\n"
+        "📖 Yordam: /help\n\n"
+        "Xush kelibsiz! 🎉"
+    )
+
+    await state.clear()

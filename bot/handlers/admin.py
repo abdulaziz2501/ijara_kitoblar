@@ -2,14 +2,14 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from database.db_manager import DatabaseManager
-from config import ADMIN_ID
+from config import ADMIN_IDS  # ADMIN_ID o'rniga ADMIN_IDS
 
 router = Router()
 
 
 def is_admin(user_id: int) -> bool:
-    """Admin ekanligini tekshirish"""
-    return str(user_id) == str(ADMIN_ID)
+    """Admin ekanligini tekshirish - ko'p adminlar uchun"""
+    return str(user_id) in [str(admin_id) for admin_id in ADMIN_IDS]
 
 
 @router.message(Command("admin"))
@@ -44,9 +44,9 @@ async def admin_statistics(callback: CallbackQuery):
     text = (
         "📊 STATISTIKA\n\n"
         f"👥 Jami foydalanuvchilar: {stats['total_users']}\n"
-        f"📗 Free: {stats['free_users']}\n"
-        f"📘 Money: {stats['money_users']}\n"
-        f"📕 Premium: {stats['premium_users']}\n\n"
+        f"🟢 Free: {stats['free_users']}\n"
+        f"🔵 Money: {stats['money_users']}\n"
+        f"🟣 Premium: {stats['premium_users']}\n\n"
         f"📈 O'rtacha yosh: {stats['average_age']} yosh"
     )
 
@@ -69,7 +69,7 @@ async def admin_users_list(callback: CallbackQuery):
     db.close()
 
     if not users:
-        await callback.message.edit_text("📝 Hozircha foydalanuvchilar yo'q")
+        await callback.message.edit_text("📂 Hozircha foydalanuvchilar yo'q")
         return
 
     text = "👥 FOYDALANUVCHILAR RO'YXATI\n\n"
@@ -80,6 +80,7 @@ async def admin_users_list(callback: CallbackQuery):
             f"{status} {user.library_id}\n"
             f"   👤 {user.first_name} {user.last_name}\n"
             f"   📋 {user.subscription_plan}\n"
+            f"   🎓 {user.study_place}\n"
             f"   📞 {user.phone_number}\n\n"
         )
 

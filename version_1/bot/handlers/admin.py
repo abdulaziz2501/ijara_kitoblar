@@ -1,8 +1,8 @@
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from database.db_manager import DatabaseManager
-from config import ADMIN_IDS  # ADMIN_ID o'rniga ADMIN_IDS
+from version_1.database.db_manager import DatabaseManager
+from version_1.config import ADMIN_IDS  # ADMIN_ID o'rniga ADMIN_IDS
 
 router = Router()
 
@@ -156,7 +156,7 @@ async def process_approve(message: Message):
 
             # Foydalanuvchiga xabar yuborish
             try:
-                from bot.main import bot
+                from version_1.bot.main import bot
                 await bot.send_message(
                     user.telegram_id,
                     f"✅ Tarifingiz tasdiqlandi!\n\n"

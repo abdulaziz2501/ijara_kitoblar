@@ -9,8 +9,7 @@ from collections import Counter
 
 # Database importini sozlash
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database.db_manager import DatabaseManager
-from config import SUBSCRIPTION_PLANS
+from version_1.database.db_manager import DatabaseManager
 
 # Sahifa konfiguratsiyasi
 st.set_page_config(

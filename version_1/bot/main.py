@@ -5,9 +5,9 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import BOT_TOKEN
-from bot.handlers import registration, subscription, admin
-from bot.utils.notification import send_expiry_warnings, check_expired_subscriptions
+from version_1.config import BOT_TOKEN
+from version_1.bot.handlers import registration, subscription, admin
+from version_1.bot.utils.notification import send_expiry_warnings, check_expired_subscriptions
 
 # Logging sozlash
 logging.basicConfig(

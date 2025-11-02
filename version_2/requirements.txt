@@ -1,0 +1,38 @@
+# ================================================
+# BOT DEPENDENCIES
+# ================================================
+
+# Aiogram - Telegram Bot Framework
+aiogram==3.13.1
+
+# Python-dotenv - Environment variables
+python-dotenv==1.0.1
+
+# ================================================
+# DATABASE DEPENDENCIES
+# ================================================
+
+# SQLite o'rnatilgan Python bilan birga keladi
+# Lekin SQLAlchemy kerak bo'lsa:
+# sqlalchemy==2.0.31
+
+# ================================================
+# OPTIONAL DEPENDENCIES
+# ================================================
+
+# Streamlit - Dashboard uchun (optional)
+# streamlit==1.38.0
+# pandas==2.2.2
+# plotly==5.23.0
+
+# ================================================
+# ISHLATISH:
+# ================================================
+# Terminal da bajaring:
+# pip install -r requirements.txt --break-system-packages
+#
+# Yoki virtual environment bilan:
+# python -m venv venv
+# source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate     # Windows
+# pip install -r requirements.txt

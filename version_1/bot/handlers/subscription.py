@@ -1,8 +1,8 @@
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from database.db_manager import DatabaseManager
-from config import SUBSCRIPTION_PLANS
+from version_1.database.db_manager import DatabaseManager
+from version_1.config import SUBSCRIPTION_PLANS
 from datetime import datetime  # Yangi: datetime import qo'shildi
 
 router = Router()

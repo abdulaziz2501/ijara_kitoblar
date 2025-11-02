@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta
-from database.db_manager import DatabaseManager
+from version_1.database.db_manager import DatabaseManager
 
 
 async def send_expiry_warnings(bot):

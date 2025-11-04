@@ -8,7 +8,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-from ijara_kitoblar.database.db_manager import DatabaseManager
+from version_2.database.db_manager import DatabaseManager
 from datetime import datetime
 
 router = Router()

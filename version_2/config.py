@@ -35,16 +35,16 @@ POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', '')
 
 DATABASE_URL = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
 # SQLite sozlamalari (fallback)
-# SQLITE_DB = os.getenv('SQLITE_DB', 'library.db')
-#
-# # Database URL yaratish
-# if DB_TYPE == 'postgresql':
-#     DATABASE_URL = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
-# else:
-#     DATABASE_URL = f'sqlite:///{SQLITE_DB}'
+SQLITE_DB = os.getenv('SQLITE_DB', 'library.db')
+
+# Database URL yaratish
+if DB_TYPE == 'postgresql':
+    DATABASE_URL = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
+else:
+    DATABASE_URL = f'sqlite:///{SQLITE_DB}'
 
 # Database path (SQLite uchun)
-# DATABASE_PATH = SQLITE_DB
+DATABASE_PATH = SQLITE_DB
 
 # ========================================
 # TARIF REJALARI

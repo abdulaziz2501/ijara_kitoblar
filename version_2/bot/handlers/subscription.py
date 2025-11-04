@@ -4,8 +4,8 @@ Subscription Handler - Tariflar bilan ishlash
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from ijara_kitoblar.database.db_manager import DatabaseManager
-from ijara_kitoblar.config import SUBSCRIPTION_PLANS
+from version_2.database.db_manager import DatabaseManager
+from version_2.config import SUBSCRIPTION_PLANS
 from datetime import datetime
 
 router = Router()

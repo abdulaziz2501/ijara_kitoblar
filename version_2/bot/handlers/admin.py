@@ -9,8 +9,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime
 
-from ijara_kitoblar.database.db_manager import DatabaseManager
-from ijara_kitoblar.database.admin_manager import AdminManager
+from version_2.database.db_manager import DatabaseManager
+from version_2.database.admin_manager import AdminManager
 
 router = Router()
 

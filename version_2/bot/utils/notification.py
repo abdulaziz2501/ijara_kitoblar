@@ -3,7 +3,7 @@ Notification Utils - Bildirishnomalar yuborish
 """
 import asyncio
 from datetime import datetime, timedelta
-from ijara_kitoblar.database.db_manager import DatabaseManager
+from version_2.database.db_manager import DatabaseManager
 import logging
 
 logger = logging.getLogger(__name__)

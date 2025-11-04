@@ -14,7 +14,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.db_manager import DatabaseManager
 from database.admin_manager import AdminManager
-from ijara_kitoblar.config import SUBSCRIPTION_PLANS
+from version_2.config import SUBSCRIPTION_PLANS
 
 # Sahifa konfiguratsiyasi
 st.set_page_config(

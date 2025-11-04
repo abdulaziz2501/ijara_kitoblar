@@ -1,296 +1,324 @@
 """
-Admin Manager (PostgreSQL) - SQLAlchemy ORM bilan
-Adminlarni boshqarish tizimi
+Admin Manager - Adminlarni boshqarish tizimi
+Bu modul adminlarni qo'shish, o'chirish va tekshirish uchun ishlatiladi
 """
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
+import sqlite3
 from typing import List, Optional, Tuple
-import logging
+from datetime import datetime
 
-from ijara_kitoblar.database.models import Base, Admin
-from ijara_kitoblar.config import DATABASE_URL, POOL_SIZE, MAX_OVERFLOW, POOL_TIMEOUT, POOL_RECYCLE
 
-logger = logging.getLogger(__name__)
+class Admin:
+    """Admin modeli"""
+    
+    def __init__(self, admin_id: int, telegram_id: int, library_id: str,
+                 full_name: str, is_super_admin: bool = False, 
+                 added_date: datetime = None, added_by: int = None):
+        self.admin_id = admin_id
+        self.telegram_id = telegram_id
+        self.library_id = library_id
+        self.full_name = full_name
+        self.is_super_admin = is_super_admin
+        self.added_date = added_date or datetime.now()
+        self.added_by = added_by  # Qaysi admin qo'shgan
 
 
 class AdminManager:
-    """PostgreSQL admin boshqarish uchun klass"""
-
-    def __init__(self, database_url: str = None):
-        """Admin Manager yaratish"""
-        self.database_url = database_url or DATABASE_URL
-
-        # Engine yaratish
-        self.engine = create_engine(
-            self.database_url,
-            poolclass=QueuePool,
-            pool_size=POOL_SIZE,
-            max_overflow=MAX_OVERFLOW,
-            pool_timeout=POOL_TIMEOUT,
-            pool_recycle=POOL_RECYCLE,
-            echo=False
-        )
-
-        # Session maker
-        self.Session = sessionmaker(bind=self.engine)
-
-        # Jadvallarni yaratish
-        Base.metadata.create_all(self.engine)
-
-    def get_session(self) -> Session:
-        """Yangi session olish"""
-        return self.Session()
-
-    def add_super_admin(self, telegram_id: int, library_id: str,
+    """Adminlarni boshqarish uchun klass"""
+    
+    def __init__(self, db_path: str = "library.db"):
+        self.db_path = db_path
+        self.conn = sqlite3.connect(db_path)
+        self.cursor = self.conn.cursor()
+        self._create_admin_table()
+    
+    def _create_admin_table(self):
+        """Admin jadvali yaratish"""
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                admin_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER UNIQUE NOT NULL,
+                library_id TEXT UNIQUE NOT NULL,
+                full_name TEXT NOT NULL,
+                is_super_admin BOOLEAN DEFAULT 0,
+                added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                added_by INTEGER,
+                is_active BOOLEAN DEFAULT 1,
+                FOREIGN KEY (library_id) REFERENCES users(library_id)
+            )
+        """)
+        self.conn.commit()
+    
+    def add_super_admin(self, telegram_id: int, library_id: str, 
                        full_name: str) -> Tuple[bool, str]:
-        """Super admin qo'shish (faqat bitta bo'lishi mumkin)"""
-        session = self.get_session()
-
+        """
+        Super admin qo'shish (faqat bitta bo'lishi mumkin)
+        
+        Args:
+            telegram_id: Telegram ID
+            library_id: Library ID (masalan ID0001)
+            full_name: To'liq ismi
+            
+        Returns:
+            (success: bool, message: str)
+        """
         try:
             # Super admin borligini tekshirish
-            existing_super = session.query(Admin).filter_by(is_super_admin=True).first()
-
-            if existing_super:
+            self.cursor.execute(
+                "SELECT COUNT(*) FROM admins WHERE is_super_admin = 1"
+            )
+            count = self.cursor.fetchone()[0]
+            
+            if count > 0:
                 return False, "❌ Super admin allaqachon mavjud!"
-
+            
             # Telegram ID mavjudligini tekshirish
-            existing = session.query(Admin).filter_by(telegram_id=telegram_id).first()
+            existing = self.get_admin_by_telegram_id(telegram_id)
             if existing:
                 return False, "❌ Bu Telegram ID allaqachon admin!"
-
+            
             # Library ID mavjudligini tekshirish
-            existing = session.query(Admin).filter_by(library_id=library_id).first()
+            existing = self.get_admin_by_library_id(library_id)
             if existing:
                 return False, "❌ Bu Library ID allaqachon admin!"
-
+            
             # Super admin qo'shish
-            admin = Admin(
-                telegram_id=telegram_id,
-                library_id=library_id,
-                full_name=full_name,
-                is_super_admin=True,
-                added_by=telegram_id
-            )
-
-            session.add(admin)
-            session.commit()
-
-            logger.info(f"✅ Super admin qo'shildi: {library_id}")
+            self.cursor.execute("""
+                INSERT INTO admins (telegram_id, library_id, full_name, 
+                                  is_super_admin, added_by)
+                VALUES (?, ?, ?, 1, ?)
+            """, (telegram_id, library_id, full_name, telegram_id))
+            
+            self.conn.commit()
             return True, f"✅ Super admin muvaffaqiyatli qo'shildi!\n📚 ID: {library_id}"
-
+            
         except Exception as e:
-            session.rollback()
-            logger.error(f"❌ Super admin qo'shishda xato: {e}")
             return False, f"❌ Xatolik: {str(e)}"
-
-        finally:
-            session.close()
-
-    def add_admin(self, telegram_id: int, library_id: str,
+    
+    def add_admin(self, telegram_id: int, library_id: str, 
                  full_name: str, added_by: int) -> Tuple[bool, str]:
-        """Oddiy admin qo'shish"""
-        session = self.get_session()
-
+        """
+        Oddiy admin qo'shish (faqat super admin qo'sha oladi)
+        
+        Args:
+            telegram_id: Yangi admin Telegram ID si
+            library_id: Library ID
+            full_name: To'liq ismi
+            added_by: Qo'shayotgan adminning Telegram ID si
+            
+        Returns:
+            (success: bool, message: str)
+        """
         try:
             # Qo'shayotgan odam super admin ekanligini tekshirish
             if not self.is_super_admin(added_by):
                 return False, "❌ Faqat super admin yangi admin qo'sha oladi!"
-
+            
             # Telegram ID mavjudligini tekshirish
-            existing = session.query(Admin).filter_by(telegram_id=telegram_id).first()
+            existing = self.get_admin_by_telegram_id(telegram_id)
             if existing:
                 return False, "❌ Bu Telegram ID allaqachon admin!"
-
+            
             # Library ID mavjudligini tekshirish
-            existing = session.query(Admin).filter_by(library_id=library_id).first()
+            existing = self.get_admin_by_library_id(library_id)
             if existing:
                 return False, "❌ Bu Library ID allaqachon admin!"
-
+            
             # Admin qo'shish
-            admin = Admin(
-                telegram_id=telegram_id,
-                library_id=library_id,
-                full_name=full_name,
-                is_super_admin=False,
-                added_by=added_by
-            )
-
-            session.add(admin)
-            session.commit()
-
-            logger.info(f"✅ Admin qo'shildi: {library_id}")
+            self.cursor.execute("""
+                INSERT INTO admins (telegram_id, library_id, full_name, 
+                                  is_super_admin, added_by)
+                VALUES (?, ?, ?, 0, ?)
+            """, (telegram_id, library_id, full_name, added_by))
+            
+            self.conn.commit()
             return True, f"✅ Admin muvaffaqiyatli qo'shildi!\n📚 ID: {library_id}"
-
+            
         except Exception as e:
-            session.rollback()
-            logger.error(f"❌ Admin qo'shishda xato: {e}")
             return False, f"❌ Xatolik: {str(e)}"
-
-        finally:
-            session.close()
-
+    
     def remove_admin(self, library_id: str, removed_by: int) -> Tuple[bool, str]:
-        """Adminni o'chirish"""
-        session = self.get_session()
-
+        """
+        Adminni o'chirish (faqat super admin o'chira oladi)
+        
+        Args:
+            library_id: O'chiriladigan admin Library ID si
+            removed_by: O'chiruvchi super admin Telegram ID si
+            
+        Returns:
+            (success: bool, message: str)
+        """
         try:
             # Super admin ekanligini tekshirish
             if not self.is_super_admin(removed_by):
                 return False, "❌ Faqat super admin boshqa adminlarni o'chira oladi!"
-
+            
             # Adminni topish
-            admin = session.query(Admin).filter_by(library_id=library_id).first()
+            admin = self.get_admin_by_library_id(library_id)
             if not admin:
                 return False, f"❌ {library_id} ID li admin topilmadi!"
-
+            
             # Super adminni o'chirib bo'lmaydi
             if admin.is_super_admin:
                 return False, "❌ Super adminni o'chirib bo'lmaydi!"
-
-            # Adminni o'chirish (deactivate)
-            admin.is_active = False
-
-            session.commit()
-            logger.info(f"✅ Admin o'chirildi: {library_id}")
+            
+            # Adminni o'chirish (actually deactivate)
+            self.cursor.execute("""
+                UPDATE admins 
+                SET is_active = 0 
+                WHERE library_id = ?
+            """, (library_id,))
+            
+            self.conn.commit()
             return True, f"✅ Admin o'chirildi: {admin.full_name}"
-
+            
         except Exception as e:
-            session.rollback()
-            logger.error(f"❌ Admin o'chirishda xato: {e}")
             return False, f"❌ Xatolik: {str(e)}"
-
-        finally:
-            session.close()
-
+    
     def is_admin(self, telegram_id: int) -> bool:
-        """Admin ekanligini tekshirish"""
-        session = self.get_session()
-
-        try:
-            admin = session.query(Admin).filter_by(
-                telegram_id=telegram_id,
-                is_active=True
-            ).first()
-            return admin is not None
-        finally:
-            session.close()
-
+        """
+        Telegram ID admin ekanligini tekshirish
+        
+        Args:
+            telegram_id: Tekshiriladigan Telegram ID
+            
+        Returns:
+            Admin bo'lsa True, aks holda False
+        """
+        self.cursor.execute("""
+            SELECT COUNT(*) FROM admins 
+            WHERE telegram_id = ? AND is_active = 1
+        """, (telegram_id,))
+        
+        count = self.cursor.fetchone()[0]
+        return count > 0
+    
     def is_super_admin(self, telegram_id: int) -> bool:
-        """Super admin ekanligini tekshirish"""
-        session = self.get_session()
-
-        try:
-            admin = session.query(Admin).filter_by(
-                telegram_id=telegram_id,
-                is_super_admin=True,
-                is_active=True
-            ).first()
-            return admin is not None
-        finally:
-            session.close()
-
+        """
+        Super admin ekanligini tekshirish
+        
+        Args:
+            telegram_id: Tekshiriladigan Telegram ID
+            
+        Returns:
+            Super admin bo'lsa True, aks holda False
+        """
+        self.cursor.execute("""
+            SELECT COUNT(*) FROM admins 
+            WHERE telegram_id = ? AND is_super_admin = 1 AND is_active = 1
+        """, (telegram_id,))
+        
+        count = self.cursor.fetchone()[0]
+        return count > 0
+    
     def get_admin_by_telegram_id(self, telegram_id: int) -> Optional[Admin]:
         """Telegram ID bo'yicha admin topish"""
-        session = self.get_session()
-
-        try:
-            admin = session.query(Admin).filter_by(
-                telegram_id=telegram_id,
-                is_active=True
-            ).first()
-
-            if admin:
-                session.expunge(admin)
-
-            return admin
-        finally:
-            session.close()
-
+        self.cursor.execute("""
+            SELECT admin_id, telegram_id, library_id, full_name, 
+                   is_super_admin, added_date, added_by
+            FROM admins
+            WHERE telegram_id = ? AND is_active = 1
+        """, (telegram_id,))
+        
+        row = self.cursor.fetchone()
+        if row:
+            return Admin(
+                admin_id=row[0],
+                telegram_id=row[1],
+                library_id=row[2],
+                full_name=row[3],
+                is_super_admin=bool(row[4]),
+                added_date=datetime.fromisoformat(row[5]) if row[5] else None,
+                added_by=row[6]
+            )
+        return None
+    
     def get_admin_by_library_id(self, library_id: str) -> Optional[Admin]:
         """Library ID bo'yicha admin topish"""
-        session = self.get_session()
-
-        try:
-            admin = session.query(Admin).filter_by(
-                library_id=library_id,
-                is_active=True
-            ).first()
-
-            if admin:
-                session.expunge(admin)
-
-            return admin
-        finally:
-            session.close()
-
+        self.cursor.execute("""
+            SELECT admin_id, telegram_id, library_id, full_name, 
+                   is_super_admin, added_date, added_by
+            FROM admins
+            WHERE library_id = ? AND is_active = 1
+        """, (library_id,))
+        
+        row = self.cursor.fetchone()
+        if row:
+            return Admin(
+                admin_id=row[0],
+                telegram_id=row[1],
+                library_id=row[2],
+                full_name=row[3],
+                is_super_admin=bool(row[4]),
+                added_date=datetime.fromisoformat(row[5]) if row[5] else None,
+                added_by=row[6]
+            )
+        return None
+    
     def get_all_admins(self) -> List[Admin]:
         """Barcha adminlarni olish"""
-        session = self.get_session()
-
-        try:
-            admins = session.query(Admin).filter_by(is_active=True).order_by(
-                Admin.is_super_admin.desc(),
-                Admin.added_date.asc()
-            ).all()
-
-            for admin in admins:
-                session.expunge(admin)
-
-            return admins
-        finally:
-            session.close()
-
+        self.cursor.execute("""
+            SELECT admin_id, telegram_id, library_id, full_name, 
+                   is_super_admin, added_date, added_by
+            FROM admins
+            WHERE is_active = 1
+            ORDER BY is_super_admin DESC, added_date ASC
+        """)
+        
+        admins = []
+        for row in self.cursor.fetchall():
+            admins.append(Admin(
+                admin_id=row[0],
+                telegram_id=row[1],
+                library_id=row[2],
+                full_name=row[3],
+                is_super_admin=bool(row[4]),
+                added_date=datetime.fromisoformat(row[5]) if row[5] else None,
+                added_by=row[6]
+            ))
+        
+        return admins
+    
     def get_super_admin(self) -> Optional[Admin]:
         """Super adminni olish"""
-        session = self.get_session()
-
-        try:
-            admin = session.query(Admin).filter_by(
-                is_super_admin=True,
-                is_active=True
-            ).first()
-
-            if admin:
-                session.expunge(admin)
-
-            return admin
-        finally:
-            session.close()
-
+        self.cursor.execute("""
+            SELECT admin_id, telegram_id, library_id, full_name, 
+                   is_super_admin, added_date, added_by
+            FROM admins
+            WHERE is_super_admin = 1 AND is_active = 1
+            LIMIT 1
+        """)
+        
+        row = self.cursor.fetchone()
+        if row:
+            return Admin(
+                admin_id=row[0],
+                telegram_id=row[1],
+                library_id=row[2],
+                full_name=row[3],
+                is_super_admin=bool(row[4]),
+                added_date=datetime.fromisoformat(row[5]) if row[5] else None,
+                added_by=row[6]
+            )
+        return None
+    
     def get_admin_count(self) -> dict:
         """Admin statistikasi"""
-        session = self.get_session()
-
-        try:
-            from sqlalchemy import func
-
-            result = session.query(
-                func.count(Admin.admin_id).label('total'),
-                func.sum(func.cast(Admin.is_super_admin, 1)).label('super_admin')
-            ).filter_by(is_active=True).first()
-
-            total = result.total or 0
-            super_admin = result.super_admin or 0
-            regular = total - super_admin
-
-            return {
-                'total': total,
-                'super_admin': super_admin,
-                'regular': regular
-            }
-        finally:
-            session.close()
-
+        self.cursor.execute("""
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN is_super_admin = 1 THEN 1 ELSE 0 END) as super_admin,
+                SUM(CASE WHEN is_super_admin = 0 THEN 1 ELSE 0 END) as regular
+            FROM admins
+            WHERE is_active = 1
+        """)
+        
+        row = self.cursor.fetchone()
+        return {
+            'total': row[0],
+            'super_admin': row[1] or 0,
+            'regular': row[2] or 0
+        }
+    
     def close(self):
-        """Engine ni yopish"""
-        self.engine.dispose()
-        logger.info("🔒 Admin Manager yopildi")
-
-
-# Test uchun
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    admin_manager = AdminManager()
-    print("✅ PostgreSQL Admin Manager test muvaffaqiyatli!")
-    admin_manager.close()
+        """Database connection yopish"""
+        self.conn.close()

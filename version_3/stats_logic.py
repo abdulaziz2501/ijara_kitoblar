@@ -40,9 +40,25 @@ def get_yesterday():
     rows = cursor.fetchall()
 
     return {u: c for u, c in rows}
+def get_all():
+    db = get_db()
+    cursor = db.cursor()
+    all = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+
+    cursor.execute("SELECT username, count FROM stats_daily WHERE date = ?", (all,))
+    rows = cursor.fetchall()
+
+    return {u: c for u, c in rows}
 
 def calculate_diff(today, yesterday):
     diff = {}
     for user in TRACKED_USERS:
         diff[user] = today.get(user, 0) - yesterday.get(user, 0)
+    return diff
+
+
+def calculate_diff_all(today, all):
+    diff = {}
+    for user in TRACKED_USERS:
+        diff[user] = today.get(user, 0) - all.get(user, 0)
     return diff

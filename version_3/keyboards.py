@@ -4,6 +4,7 @@ main_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="📊 Bugungi statistika", callback_data="today")],
     [InlineKeyboardButton(text="📅 Kechagi statistika", callback_data="yesterday")],
     [InlineKeyboardButton(text="🔁 Taqqoslash", callback_data="compare")],
+    [InlineKeyboardButton(text="🔁 Hammasi", callback_data="all")],
     [InlineKeyboardButton(text="📤 Export (Excel/PDF)", callback_data="export_menu")],
 ])
 export_menu = InlineKeyboardMarkup(inline_keyboard=[

@@ -7,9 +7,8 @@ from aiogram.types import InputFile
 
 from config import BOT_TOKEN
 from database import init_db
-from stats_logic import save_today, get_today, get_yesterday, calculate_diff
+from stats_logic import save_today, get_today, get_yesterday, calculate_diff, get_all, calculate_diff_all
 from keyboards import main_menu
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,6 +46,15 @@ async def compare(call: types.CallbackQuery):
     msg = "\n".join([f"{u}: +{d}" for u, d in diff.items()])
     await call.message.edit_text("🔁 Farq:\n\n" + msg, reply_markup=main_menu)
 
+
+@dp.callback_query(lambda c: c.data == "all")
+async def all(call: types.CallbackQuery):
+    today = get_today()
+    all = get_all()
+    diff = calculate_diff_all(today, all)
+
+    msg = "\n".join([f"{u}: +{d}" for u, d in diff.items()])
+    await call.message.edit_text("🔁 Farq:\n\n" + msg, reply_markup=main_menu)
 
 @dp.message()
 async def update_stats(msg: types.Message):

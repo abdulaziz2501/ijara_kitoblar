@@ -176,3 +176,4 @@ if __name__ == '__main__':
         logger.info("⏹️ Bot foydalanuvchi tomonidan to'xtatildi!")
     except Exception as e:
         logger.error(f"❌ Kritik xato: {e}")
+
